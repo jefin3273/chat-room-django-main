@@ -26,4 +26,4 @@ A chat application enabling users to register, log in, and communicate in real t
 
 ## Hosted Link
 
-[Click here to view the hosted project](#)
+[[Click here to view the hosted project](https://8cd6-182-59-97-173.ngrok-free.app/login/)](#)
