@@ -1,0 +1,1 @@
+web: gunicorn chat-room-django-main.wsgi --log-file - 
