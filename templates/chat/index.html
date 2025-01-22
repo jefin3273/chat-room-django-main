@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-header">
+                Users
+            </div>
+            <div class="card-body">
+                <div class="list-group">
+                    {% for user in users %}
+                        <a href="{% url 'chat:room' user.id %}" class="list-group-item list-group-item-action">
+                            {{ user.username }}
+                        </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-9">
+        <div class="card">
+            <div class="card-body text-center">
+                <h5>Select a user to start chatting</h5>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

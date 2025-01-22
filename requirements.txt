@@ -1,0 +1,7 @@
+Django
+channels
+channels-redis
+daphne
+django-crispy-forms
+python-dotenv
+crispy-bootstrap5

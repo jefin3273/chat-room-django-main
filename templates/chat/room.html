@@ -1,0 +1,422 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="flex h-[calc(100vh-12rem)] bg-white rounded-lg shadow-lg overflow-hidden">
+    <!-- Sidebar -->
+    <div class="w-80 border-r border-gray-200 bg-gray-50">
+        <!-- Search bar -->
+        <div class="p-4 border-b border-gray-200">
+            <div class="relative">
+                <input type="text" 
+                       id="user-search"
+                       class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                       placeholder="Search users...">
+                <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+            </div>
+        </div>
+
+        <!-- Online users count -->
+        <div class="px-4 py-2 bg-gray-100 border-b border-gray-200">
+            <p class="text-sm text-gray-600">
+                <i class="fas fa-circle text-green-500 text-xs"></i>
+                <span id="online-count" class="ml-2">0</span> users online
+            </p>
+        </div>
+
+        <!-- Users list -->
+        <div class="overflow-y-auto h-[calc(100%-8rem)]">
+            {% for user in users %}
+            <a href="{% url 'chat:room' user.id %}" 
+               class="block hover-scale transition-all duration-200 {% if user.id == other_user.id %}bg-indigo-50 border-l-4 border-indigo-600{% else %}hover:bg-gray-100{% endif %}">
+                <div class="px-6 py-3">
+                    <div class="flex items-center space-x-3">
+                        <div class="flex-shrink-0 relative">
+                            <span class="inline-block h-10 w-10 rounded-full bg-indigo-100 text-center leading-10 text-indigo-700 font-medium">
+                                {{ user.username|make_list|first|upper }}
+                            </span>
+                            <span class="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-white"></span>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <p class="text-sm font-medium text-gray-900">{{ user.username }}</p>
+                            <p class="text-xs text-gray-500" id="status-{{ user.id }}">
+                                {% if user.id == other_user.id %}Active Now{% else %}Online{% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Chat area -->
+    <div class="flex-1 flex flex-col">
+        <!-- Chat header -->
+        <div class="h-16 flex items-center justify-between px-6 border-b border-gray-200">
+            <div class="flex items-center">
+                <div class="relative">
+                    <span class="inline-block h-10 w-10 rounded-full bg-indigo-100 text-center leading-10 text-indigo-700 font-medium">
+                        {{ other_user.username|make_list|first|upper }}
+                    </span>
+                    <span class="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-white"></span>
+                </div>
+                <div class="ml-3">
+                    <h2 class="text-lg font-medium text-gray-900">{{ other_user.username }}</h2>
+                    <p class="text-xs text-gray-500" id="user-status">Active Now</p>
+                </div>
+            </div>
+            
+            <!-- Chat actions -->
+            <div class="flex items-center space-x-3">
+                <button class="text-gray-400 hover:text-gray-600" id="toggle-emoji">
+                    <i class="far fa-smile text-xl"></i>
+                </button>
+                <button class="text-gray-400 hover:text-gray-600" id="clear-chat">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
+                <button class="text-gray-400 hover:text-gray-600" id="toggle-notifications">
+                    <i class="fas fa-bell"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Messages -->
+        <div id="chat-messages" class="flex-1 overflow-y-auto p-6 space-y-4 scrollbar-hide">
+            <div class="text-center text-sm text-gray-500 mb-4">
+                <span>Chat started on {{ messages.0.timestamp|date:"F j, Y" }}</span>
+            </div>
+            
+            {% for message in messages %}
+            <div class="flex {% if message.sender == request.user %}justify-end{% endif %}">
+                <div class="chat-message max-w-[70%] px-4 py-2 {% if message.sender == request.user %}message-sent{% else %}message-received{% endif %}">
+                    <p class="text-sm">{{ message.content }}</p>
+                    <div class="flex items-center justify-end mt-1 space-x-2">
+                        <p class="text-xs {% if message.sender == request.user %}text-blue-100{% else %}text-gray-500{% endif %}">
+                            {{ message.timestamp|date:"H:i" }}
+                        </p>
+                        {% if message.sender == request.user %}
+                        <i class="fas fa-check-double text-xs {% if message.read %}text-blue-100{% else %}text-blue-300{% endif %}"></i>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Typing indicator -->
+        <div id="typing-indicator" class="hidden px-6 py-2 text-sm text-gray-500">
+            <div class="typing-indicator">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+
+        <!-- Input area -->
+        <div class="h-24 border-t border-gray-200 p-4">
+            <div class="relative flex space-x-4">
+                <!-- Emoji picker -->
+                <div id="emoji-picker" class="emoji-picker">
+                    <div class="grid grid-cols-8 gap-2">
+                        <!-- Common emojis -->
+                        <button class="emoji-btn hover:bg-gray-100 p-1 rounded">😊</button>
+                        <button class="emoji-btn hover:bg-gray-100 p-1 rounded">😂</button>
+                        <button class="emoji-btn hover:bg-gray-100 p-1 rounded">❤️</button>
+                        <button class="emoji-btn hover:bg-gray-100 p-1 rounded">👍</button>
+                        <button class="emoji-btn hover:bg-gray-100 p-1 rounded">🎉</button>
+                        <!-- Add more emojis as needed -->
+                    </div>
+                </div>
+
+                <input type="text" 
+                       id="chat-message-input"
+                       class="flex-1 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 block w-full rounded-full sm:text-sm border-gray-300 px-4"
+                       placeholder="Type your message...">
+                
+                <button id="chat-message-submit"
+                        class="inline-flex items-center px-6 py-2 border border-transparent text-sm font-medium rounded-full shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-200">
+                    <i class="fas fa-paper-plane mr-2"></i>
+                    Send
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const roomName = "{{ room_name }}";
+    const currentUser = {{ request.user.id }};
+    const otherUser = {{ other_user.id }};
+    let chatSocket = null;
+    let typingTimeout = null;
+
+    // Initialize chat features
+    function initializeChatFeatures() {
+        // Emoji picker toggle
+        const emojiToggle = document.getElementById('toggle-emoji');
+        const emojiPicker = document.getElementById('emoji-picker');
+        
+        emojiToggle.addEventListener('click', () => {
+            emojiPicker.classList.toggle('active');
+        });
+
+        // Add emoji buttons functionality
+        document.querySelectorAll('.emoji-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const input = document.getElementById('chat-message-input');
+                input.value += btn.textContent;
+                input.focus();
+            });
+        });
+
+        // Clear chat functionality
+        document.getElementById('clear-chat').addEventListener('click', () => {
+            if (confirm('Are you sure you want to clear the chat history?')) {
+                document.getElementById('chat-messages').innerHTML = '';
+                showToast('Chat history cleared', 'info');
+            }
+        });
+
+        // Notifications toggle
+        let notificationsEnabled = true;
+        document.getElementById('toggle-notifications').addEventListener('click', function() {
+            notificationsEnabled = !notificationsEnabled;
+            this.querySelector('i').classList.toggle('text-indigo-600');
+            showToast(`Notifications ${notificationsEnabled ? 'enabled' : 'disabled'}`, 'info');
+        });
+
+        // User search functionality
+        document.getElementById('user-search').addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase();
+            document.querySelectorAll('[id^="status-"]').forEach(el => {
+                const userBlock = el.closest('a');
+                const username = userBlock.querySelector('.text-gray-900').textContent.toLowerCase();
+                userBlock.style.display = username.includes(searchTerm) ? 'block' : 'none';
+            });
+        });
+    }
+
+    function connectWebSocket() {
+        const wsScheme = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+        chatSocket = new WebSocket(
+            wsScheme + window.location.host + '/ws/chat/' + roomName + '/'
+        );
+
+        chatSocket.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+            
+            // Handle typing indicator
+            if (data.type === 'typing') {
+                if (data.sender !== currentUser) {
+                    document.getElementById('typing-indicator').classList.remove('hidden');
+                    clearTimeout(typingTimeout);
+                    typingTimeout = setTimeout(() => {
+                        document.getElementById('typing-indicator').classList.add('hidden');
+                    }, 1000);
+                }
+                return;
+            }
+
+            // Handle regular messages
+            const messageElement = document.createElement('div');
+            messageElement.className = `flex ${data.sender == currentUser ? 'justify-end' : ''}`;
+            
+            messageElement.innerHTML = `
+                <div class="chat-message max-w-[70%] px-4 py-2 ${data.sender == currentUser ? 'message-sent' : 'message-received'}">
+                    <p class="text-sm">${data.message}</p>
+                    <div class="flex items-center justify-end mt-1 space-x-2">
+                        <p class="text-xs ${data.sender == currentUser ? 'text-blue-100' : 'text-gray-500'}">
+                            ${data.timestamp}
+                        </p>
+                        ${data.sender == currentUser ? '<i class="fas fa-check text-xs text-blue-300"></i>' : ''}
+                    </div>
+                </div>
+            `;
+            
+            document.querySelector('#chat-messages').appendChild(messageElement);
+            scrollToBottom();
+
+            // Show notification if needed
+            if (data.sender !== currentUser && document.hidden) {
+                const notification = new Notification(`New message from ${data.sender_name}`, {
+                    body: data.message,
+                    icon: '/static/images/chat-icon.png'
+                });
+            }
+        };
+
+        chatSocket.onclose = function(e) {
+            console.log('Chat socket closed unexpectedly');
+            setTimeout(function() {
+                connectWebSocket();
+            }, 1000);
+        };
+
+        chatSocket.onerror = function(err) {
+            console.error('WebSocket error:', err);
+            chatSocket.close();
+        };
+    }
+
+    function scrollToBottom() {
+        const messages = document.querySelector('#chat-messages');
+        messages.scrollTop = messages.scrollHeight;
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function() {
+        initializeChatFeatures();
+        connectWebSocket();
+        
+        // Request notification permission
+        if (Notification.permission !== 'granted') {
+            Notification.requestPermission();
+        }
+    });
+
+    // Handle typing indicator
+    document.querySelector('#chat-message-input').addEventListener('input', function() {
+        if (chatSocket && chatSocket.readyState === WebSocket.OPEN)
+        {
+            chatSocket.send(JSON.stringify({
+                'type': 'typing',
+                'sender': currentUser,
+                'receiver': otherUser
+            }));
+        }
+    });
+
+    document.querySelector('#chat-message-input').focus();
+    document.querySelector('#chat-message-input').onkeyup = function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            document.querySelector('#chat-message-submit').click();
+        }
+    };
+
+    document.querySelector('#chat-message-submit').onclick = function(e) {
+        const messageInputDom = document.querySelector('#chat-message-input');
+        const message = messageInputDom.value.trim();
+        
+        if (message && chatSocket && chatSocket.readyState === WebSocket.OPEN) {
+            // Add loading state to button
+            const button = document.querySelector('#chat-message-submit');
+            const originalContent = button.innerHTML;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            button.disabled = true;
+
+            chatSocket.send(JSON.stringify({
+                'message': message,
+                'sender': currentUser,
+                'receiver': otherUser
+            }));
+
+            messageInputDom.value = '';
+
+            // Reset button state after a short delay
+            setTimeout(() => {
+                button.innerHTML = originalContent;
+                button.disabled = false;
+            }, 300);
+        }
+    };
+
+    // Handle read receipts
+    function markMessageAsRead(messageId) {
+        if (chatSocket && chatSocket.readyState === WebSocket.OPEN) {
+            chatSocket.send(JSON.stringify({
+                'type': 'read_receipt',
+                'message_id': messageId,
+                'sender': currentUser,
+                'receiver': otherUser
+            }));
+        }
+    }
+
+    // Observe messages for read receipts
+    const messageObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                const messageId = entry.target.dataset.messageId;
+                if (messageId) {
+                    markMessageAsRead(messageId);
+                }
+            }
+        });
+    }, { threshold: 1.0 });
+
+    // Observe each unread message
+    document.querySelectorAll('.message-received[data-read="false"]').forEach(msg => {
+        messageObserver.observe(msg);
+    });
+
+    // Handle user status updates
+    window.addEventListener('focus', () => {
+        if (chatSocket && chatSocket.readyState === WebSocket.OPEN) {
+            chatSocket.send(JSON.stringify({
+                'type': 'status',
+                'status': 'active',
+                'user_id': currentUser
+            }));
+        }
+    });
+
+    window.addEventListener('blur', () => {
+        if (chatSocket && chatSocket.readyState === WebSocket.OPEN) {
+            chatSocket.send(JSON.stringify({
+                'type': 'status',
+                'status': 'away',
+                'user_id': currentUser
+            }));
+        }
+    });
+
+    // Initial scroll to bottom
+    scrollToBottom();
+</script>
+
+<style>
+    /* Custom scrollbar for browsers that support it */
+    #chat-messages::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    #chat-messages::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 3px;
+    }
+
+    #chat-messages::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 3px;
+    }
+
+    #chat-messages::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+    }
+
+    /* Message animations */
+    @keyframes messageIn {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .message {
+        animation: messageIn 0.3s ease-out forwards;
+    }
+
+    /* Hover effects */
+    .hover-message:hover {
+        filter: brightness(95%);
+    }
+</style>
+{% endblock %}
